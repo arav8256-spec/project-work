@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Mission 2026-2027 government exam preparation tracker for lectures, daily tasks, study routines and mock tests." />
+  <meta name="theme-color" content="#0d1117" />
+  <title>Mission 2026-2027 | Study Tracker & Admin Command</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="theme-dark">
+
+<!-- ===================== AUTHENTICATION OVERLAY ===================== -->
+<div id="authScreen" class="auth-screen-overlay" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div class="auth-card">
+    <div class="auth-logo">🎯</div>
+    <h2 class="auth-title" id="authTitle">MISSION 2026-2027</h2>
+    <p class="auth-subtitle">Master Government Exam Preparation Tracker</p>
+
+    <!-- Auth mode tabs -->
+    <div class="mode-tabs" style="justify-content:center;margin-bottom:1rem;">
+      <button type="button" id="tabAuthStudent" class="mode-btn active">🎓 Student Access</button>
+      <button type="button" id="tabAuthAdmin" class="mode-btn">👑 Admin Login</button>
+    </div>
+
+    <div id="authError" class="auth-error">Invalid credentials. Please try again.</div>
+
+    <!-- Student Auth Form (User enters their own name & password) -->
+    <form id="authStudentForm" class="auth-form">
+      <div>
+        <label class="form-label" for="authStudentName">Email Address</label>
+        <input type="text" id="authStudentName" type="email" class="form-input" placeholder="Enter your email address" required autocomplete="username" />
+      </div>
+      <div>
+        <label class="form-label" for="authStudentPassword">Password</label>
+        <input type="password" id="authStudentPassword" class="form-input" placeholder="Enter your password" required autocomplete="current-password" />
+      </div>
+      <button type="submit" id="btnSubmitStudentAuth" class="btn btn-primary" style="width:100%;padding:0.7rem;font-size:0.95rem;margin-top:0.3rem;">
+        🚀 Enter Student Portal
+      </button>
+      <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:0.2rem;">
+        New visitors can create an account with their email and password. Your progress is saved online.
+      </p>
+    </form>
+
+    <!-- Admin Auth Form (Supabase administrator account) -->
+    <form id="authAdminForm" class="auth-form" style="display:none;">
+      <div>
+        <label class="form-label" for="authAdminUsername">Admin Email Address</label>
+        <input type="text" id="authAdminUsername" type="email" class="form-input" placeholder="Enter admin email address" required autocomplete="username" />
+      </div>
+      <div>
+        <label class="form-label" for="authAdminPassword">Admin Password</label>
+        <input type="password" id="authAdminPassword" class="form-input" placeholder="Enter admin password" required autocomplete="current-password" />
+      </div>
+      <button type="submit" id="btnSubmitAdminAuth" class="btn btn-admin" style="width:100%;padding:0.7rem;font-size:0.95rem;margin-top:0.3rem;">
+        👑 Enter Admin Command Portal
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== HEADER ===================== -->
+<header class="app-header">
+  <div class="header-left">
+    <span class="app-logo">🎯</span>
+    <div class="app-brand">
+      <h1 class="app-title">MISSION 2026-2027</h1>
+      <p class="app-subtitle">Master Government Exam Tracker</p>
+    </div>
+  </div>
+
+  <!-- Role Indicator & Switcher -->
+  <div class="header-center">
+    <div id="userProfileBadge" class="user-profile-badge badge-student">
+      <span id="userProfileIcon">🎓</span>
+      <span id="userProfileName">Student</span>
+    </div>
+
+    <div class="role-badge-toggle" id="roleToggleWrap">
+      <button id="roleStudentBtn" class="role-btn active" title="Student Learner View">
+        <span>🎓</span> Student View
+      </button>
+      <button id="roleAdminBtn" class="role-btn" title="Admin / Mentor Portal">
+        <span>👑</span> Admin Portal
+      </button>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <button id="themeToggleBtn" class="btn btn-icon" title="Toggle Theme">
+      <span id="themeIcon">☀️</span>
+    </button>
+    <button id="exportBtn" class="btn btn-secondary btn-sm">💾 Export</button>
+    <button id="importBtn" class="btn btn-secondary btn-sm">📂 Import</button>
+    <input type="file" id="importFileInput" accept=".json" style="display:none;" />
+    <button id="logoutBtn" class="btn btn-secondary btn-sm" title="Log Out">🚪 Logout</button>
+    <button id="resetBtn" class="btn btn-danger btn-sm">🔄 Reset</button>
+  </div>
+</header>
+
+<!-- ===================== ADMIN MODE BANNER ===================== -->
+<div id="adminModeBanner" class="admin-mode-banner" style="display:none;">
+  <div class="admin-mode-left">
+    <span>👑 ADMIN & MENTOR COMMAND CENTER</span>
+    <span style="opacity:0.6;">|</span>
+    <div class="student-select-wrap">
+      <label for="adminStudentSelect" style="color:var(--text-muted);font-size:0.75rem;">Aspirant Profile:</label>
+      <select id="adminStudentSelect" class="student-select">
+        <option value="">-- No registered aspirants yet --</option>
+      </select>
+    </div>
+  </div>
+  <div class="admin-mode-right">
+    <button id="quickAssignTaskBtn" class="btn btn-admin btn-xs">➕ Assign Lecture Task</button>
+    <button id="quickRoutineBtn" class="btn btn-admin btn-xs">⏰ Set Daily Routine</button>
+    <button id="exitAdminModeBtn" class="btn btn-secondary btn-xs">Exit Admin Mode ✕</button>
+  </div>
+</div>
+
+<!-- ===================== MENTOR FEEDBACK NOTICE (STUDENT VIEW) ===================== -->
+<div id="mentorNoticeBanner" class="mentor-notice-banner" style="display:none;">
+  <div class="mentor-notice-title"><span>👑</span> Mentor Feedback:</div>
+  <div id="mentorNoticeText" class="mentor-notice-text">Stay consistent! Complete Arithmetic daily.</div>
+  <button id="dismissMentorNoticeBtn" class="btn btn-icon btn-xs" title="Dismiss" style="border:none;color:var(--text-muted);">✕</button>
+</div>
+
+<!-- ===================== HERO SECTION ===================== -->
+<section class="hero-section">
+  <div class="hero-timeline-badge">
+    <div class="timeline-label">
+      <span>📅</span>
+      <span class="tl-text">Target Timeline:</span>
+      <span id="targetStartDate" class="tl-date">Nov 20, 2026</span>
+      <span class="tl-sep">→</span>
+      <span id="targetEndDate" class="tl-date">Nov 02, 2027</span>
+    </div>
+    <div id="targetCountdown" class="countdown-badge">⏳ Calculating...</div>
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-text">
+      <h2 class="hero-heading">Syllabus Mastery Command Center</h2>
+      <p class="hero-subtext">Track all 1,345 individual lectures across 18 subjects with 4-stage milestones (Watch, Notes, Revision, Practice) & 1,243 exam mock papers.</p>
+
+      <div class="hero-stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">OVERALL</div>
+          <div class="stat-value" id="statOverallPct">0%</div>
+          <div class="stat-sub" id="statStagesDone">0 / 5,380 stages</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">🎥 WATCHED</div>
+          <div class="stat-value" id="statLecturesDone">0</div>
+          <div class="stat-sub" id="statTotalLecturesSub">of 1,345 lectures</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">📝 NOTES</div>
+          <div class="stat-value" id="statNotesDone">0</div>
+          <div class="stat-sub" id="statTotalNotesSub">of 1,345 completed</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">🔁 REVISION</div>
+          <div class="stat-value" id="statRevisionDone">0</div>
+          <div class="stat-sub">cycles finished</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">✍️ QUESTIONS</div>
+          <div class="stat-value" id="statQuestionsDone">0</div>
+          <div class="stat-sub">sets practiced</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">📋 MOCKS DONE</div>
+          <div class="stat-value" id="statMocksAttempted">0</div>
+          <div class="stat-sub">of 1,243 test papers</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-radial">
+      <svg class="radial-svg" viewBox="0 0 160 160">
+        <circle class="radial-track" cx="80" cy="80" r="70" />
+        <circle id="radialProgressCircle" class="radial-fill" cx="80" cy="80" r="70"
+          stroke-dasharray="440" stroke-dashoffset="440" />
+      </svg>
+      <div class="radial-center">
+        <div class="radial-pct" id="radialProgressText">0%</div>
+        <div class="radial-label">DONE</div>
+      </div>
+      <div class="rank-badge" id="aspirantRankBadge">🌱 Aspirant Kickoff</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== NAVIGATION ===================== -->
+<nav class="main-nav">
+  <div class="nav-scroll">
+    <button class="nav-tab active" data-tab="tab-progress">
+      📊 Subject Progress <span class="nav-badge" id="badgeOverallPct">0%</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-daily">
+      🎯 Daily Tasks <span class="nav-badge" id="badgeDailyTasksCount">0/0</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-timetable">
+      ⏰ Timetable <span class="nav-badge" id="badgeTimetableStudyHrs">0h</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-todo">
+      📋 Master Syllabus <span class="nav-badge" id="badgeLectureCount">0/1,345</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-mocks">
+      📝 Mock Tests <span class="nav-badge" id="badgeMockCount">0/1,243</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-motivation">
+      🏆 Trophies
+    </button>
+    <button class="nav-tab admin-tab" data-tab="tab-admin" id="navTabAdmin">
+      👑 Admin Portal <span class="nav-badge admin-badge" id="badgeAdminAlerts">Admin</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ===================== TAB CONTENT ===================== -->
+<main class="tab-content">
+
+  <!-- ===== TAB 1: SUBJECT PROGRESS ===== -->
+  <section id="tab-progress" class="tab-pane active">
+    <div class="tab-header">
+      <h2>📊 Subject-Wise Progress Tracker</h2>
+      <select id="subjectCategoryFilter" class="form-select" style="max-width:240px;">
+        <option value="ALL">All Categories (18 Subjects)</option>
+        <option value="English">English</option>
+        <option value="Reasoning">Reasoning</option>
+        <option value="Science">Science</option>
+        <option value="General Studies">General Studies</option>
+        <option value="Technology">Technology</option>
+        <option value="Languages">Languages</option>
+        <option value="Mathematics">Mathematics</option>
+      </select>
+    </div>
+    <div class="subjects-grid" id="subjectCardsGrid">
+      <!-- Rendered by JS -->
+    </div>
+  </section>
+
+  <!-- ===== TAB 2: DAILY TASKS (DATE + DIRECT LECTURE TASKS ONLY) ===== -->
+  <section id="tab-daily" class="tab-pane">
+    <div class="daily-layout">
+      <!-- Left: Date Selection + Assigned Lecture Tasks List -->
+      <div class="daily-main">
+        <div class="card">
+          <div class="card-header">
+            <h3>🎯 Daily Lecture Targets</h3>
+            <!-- Date Navigator -->
+            <div class="date-nav">
+              <button id="dtPrevDayBtn" class="btn btn-icon btn-sm">◀</button>
+              <input type="date" id="dailyTaskDatePicker" class="form-input date-input" />
+              <button id="dtNextDayBtn" class="btn btn-icon btn-sm">▶</button>
+              <button id="todayDateBtn" class="btn btn-secondary btn-sm">Today</button>
+            </div>
+          </div>
+
+          <div class="day-label-row">
+            <span id="targetDayName" class="day-label">Today</span>
+            <span id="selectedDateLabel" class="day-sublabel">Today's Assigned Lectures</span>
+            <span id="dailyTasksSummaryText" class="summary-text">0 of 0 Completed (0%)</span>
+          </div>
+
+          <!-- Quick Navigation Bar to Syllabus for adding direct lectures -->
+          <div class="daily-lecture-info-bar">
+            <span>📖 Tasks are individual lectures assigned directly from the <strong>Master Syllabus</strong> or by your <strong>Admin</strong>.</span>
+            <button id="goToSyllabusBtn" class="btn btn-primary btn-xs">📋 + Add from 1,345 Lectures</button>
+          </div>
+
+          <!-- Filter Chips -->
+          <div class="filter-chips">
+            <button class="chip active" data-daily-filter="ALL">All Lectures</button>
+            <button class="chip" data-daily-filter="ADMIN">👑 Admin Assigned</button>
+            <button class="chip" data-daily-filter="PENDING">⏳ Pending</button>
+            <button class="chip" data-daily-filter="COMPLETED">✅ Done</button>
+            <button id="clearCompletedDailyTasksBtn" class="chip chip-danger" style="margin-left:auto;">🗑️ Clear Done</button>
+          </div>
+
+          <!-- Task List -->
+          <div id="dailyTasksList" class="task-list">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Progress ring + Gains log -->
+      <div class="daily-sidebar">
+        <div class="card progress-ring-card">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 120 120" class="ring-svg">
+              <circle class="ring-track" cx="60" cy="60" r="52" />
+              <circle id="dailyProgressRingCircle" class="ring-fill" cx="60" cy="60" r="52"
+                stroke-dasharray="327" stroke-dashoffset="327" />
+            </svg>
+            <div class="ring-center">
+              <div class="ring-pct" id="dailyProgressRingText">0%</div>
+              <div class="ring-label">Today</div>
+            </div>
+          </div>
+          <div class="ring-status" id="dailyCompletionStatusMsg">No lecture targets yet.</div>
+          <div class="streak-badge">🔥 Streak: <strong id="dailyStreakCount">1</strong> days</div>
+        </div>
+
+        <div class="card">
+          <h4 class="card-subheading">📈 Today's Subject Gains</h4>
+          <div id="todaySubjectGainsList" class="gains-list">
+            <p class="muted-text">No completed lectures yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TAB 3: TIMETABLE ===== -->
+  <section id="tab-timetable" class="tab-pane">
+    <div class="timetable-layout">
+      <div class="timetable-main">
+        <div class="card">
+          <div class="card-header">
+            <h3>⏰ Daily Timetable</h3>
+            <div class="date-nav">
+              <button id="ttPrevDayBtn" class="btn btn-icon btn-sm">◀</button>
+              <input type="date" id="ttDatePicker" class="form-input date-input" />
+              <button id="ttNextDayBtn" class="btn btn-icon btn-sm">▶</button>
+              <button id="ttTodayBtn" class="btn btn-secondary btn-sm">Today</button>
+            </div>
+          </div>
+          <div class="tt-controls">
+            <h4 id="ttDayTitle">Schedule for Today</h4>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <span>Slots: <strong id="timetableSlotCount">0</strong></span>
+              <div id="liveTimeClock" class="live-clock">🟢 Live Clock: --:--:--</div>
+              <button id="openAddSlotModalBtn" class="btn btn-primary btn-sm">➕ Add Slot</button>
+              <button id="clearDateTimetableBtn" class="btn btn-danger btn-sm">🗑️ Clear</button>
+            </div>
+          </div>
+          <div id="timelineList" class="timeline-list">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+      <div class="timetable-sidebar">
+        <div class="card">
+          <h4 class="card-subheading">⏱️ Hours Allocation</h4>
+          <div class="hours-stat"><span>📖 Study</span><strong id="statTimetableStudyHrs">0h</strong></div>
+          <div class="hours-bar"><div id="fillTimetableStudy" class="hours-fill study-fill" style="width:0%"></div></div>
+          <div class="hours-stat"><span>💼 Work</span><strong id="statTimetableWorkHrs">0h</strong></div>
+          <div class="hours-bar"><div id="fillTimetableWork" class="hours-fill work-fill" style="width:0%"></div></div>
+          <div class="hours-stat"><span>🏫 Coaching</span><strong id="statTimetableCoachingHrs">0h</strong></div>
+          <div class="hours-bar"><div id="fillTimetableCoaching" class="hours-fill coaching-fill" style="width:0%"></div></div>
+          <div class="hours-stat"><span>😴 Rest</span><strong id="statTimetableRestHrs">0h</strong></div>
+          <div class="hours-bar"><div id="fillTimetableRest" class="hours-fill rest-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TAB 4: MASTER SYLLABUS ===== -->
+  <section id="tab-todo" class="tab-pane">
+    <div class="card">
+      <div class="card-header">
+        <h3>📋 Master Syllabus – 1,345 Lectures</h3>
+      </div>
+      <!-- Filters -->
+      <div class="syllabus-filters">
+        <input type="text" id="todoSearchInput" class="form-input search-input" placeholder="🔍 Search lectures..." />
+        <select id="todoSubjectFilter" class="form-select">
+          <option value="ALL">All Subjects</option>
+        </select>
+      </div>
+      <div class="filter-chips">
+        <button class="chip filter-chip active" data-todo-filter="ALL">All</button>
+        <button class="chip filter-chip" data-todo-filter="DONE">✅ Done</button>
+        <button class="chip filter-chip" data-todo-filter="IN_PROGRESS">⚡ Active</button>
+        <button class="chip filter-chip" data-todo-filter="UNSTARTED">🔵 Unstarted</button>
+        <div class="syllabus-summary">
+          Showing <strong id="visibleRowCount">0</strong> of <strong id="totalMasterLecturesCount">1,345</strong>
+          — <strong id="visiblePct">0%</strong> complete
+        </div>
+      </div>
+      <!-- Bulk actions -->
+      <div class="bulk-actions">
+        <button id="markAllVisibleDoneBtn" class="btn btn-secondary btn-sm">✅ Mark All Done</button>
+        <button id="resetAllVisibleBtn" class="btn btn-danger btn-sm">↩️ Reset All</button>
+        <div class="pagination-info">
+          Page <span id="currentPageNum">1</span> / <span id="totalPagesNum">1</span>
+          <button id="prevPageBtn" class="btn btn-icon btn-sm" disabled>◀</button>
+          <button id="nextPageBtn" class="btn btn-icon btn-sm">▶</button>
+        </div>
+      </div>
+      <!-- Table (scrollable on mobile) -->
+      <div class="table-wrap">
+        <table class="syllabus-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Lecture / Topic</th>
+              <th>🎥 Watch</th>
+              <th>📝 Notes</th>
+              <th>🔁 Revise</th>
+              <th>✍️ Qns</th>
+              <th>Progress</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="todoTableBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TAB 5: MOCK TESTS ===== -->
+  <section id="tab-mocks" class="tab-pane">
+    <div class="card">
+      <div class="card-header">
+        <h3>📝 Mock Tests & PYQs Tracker</h3>
+        <input type="text" id="mockSearchInput" class="form-input search-input" placeholder="🔍 Search papers..." style="max-width:220px;" />
+      </div>
+      <div id="mockSeriesTabs" class="mock-series-tabs"><!-- JS --></div>
+      <div id="mockSeriesInfo" class="mock-series-info"></div>
+      <div id="mockPapersGrid" class="mock-papers-grid"><!-- JS --></div>
+    </div>
+  </section>
+
+  <!-- ===== TAB 6: TROPHIES ===== -->
+  <section id="tab-motivation" class="tab-pane">
+    <div class="card">
+      <div class="card-header">
+        <h3>🏆 Aspirant Rank & Milestone Trophies</h3>
+      </div>
+      <div id="trophiesGrid" class="trophies-grid"><!-- JS --></div>
+    </div>
+  </section>
+
+  <!-- ===== TAB 7: ADMIN / MENTOR PORTAL ===== -->
+  <section id="tab-admin" class="tab-pane">
+    <div class="admin-grid">
+
+      <!-- Student Profile & Performance Overview Card -->
+      <div class="card card-admin-highlight">
+        <div class="admin-student-bar">
+          <div class="admin-student-info">
+            <div class="admin-student-avatar" id="adminStudentAvatar">👤</div>
+            <div>
+              <div class="admin-student-name" id="adminStudentDispName">No Aspirant Selected</div>
+              <div class="admin-student-batch" id="adminStudentDispBatch">Aspirants will appear here once they log in</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <span id="adminStudentStatusPill" class="admin-tag-pill" style="background:rgba(148,163,184,0.15);color:var(--text-muted);border:1px solid rgba(148,163,184,0.3);font-size:0.75rem;padding:0.25rem 0.6rem;">⚪ Waiting for Aspirant Login</span>
+            <button id="adminRefreshBtn" class="btn btn-secondary btn-sm">🔄 Refresh Data</button>
+          </div>
+        </div>
+
+        <!-- 6 Performance Metrics -->
+        <div class="admin-perf-cards">
+          <div class="admin-stat-card">
+            <span class="admin-stat-lbl">📊 Overall Syllabus</span>
+            <span class="admin-stat-val" id="adminStatOverallPct">0.0%</span>
+            <span class="admin-stat-sub" id="adminStatMilestones">0 / 5,380 stages</span>
+          </div>
+          <div class="admin-stat-card">
+            <span class="admin-stat-lbl">🎥 Video Lectures</span>
+            <span class="admin-stat-val" id="adminStatLectures">0</span>
+            <span class="admin-stat-sub" id="adminStatLecturesSub">of 1,345 lectures</span>
+          </div>
+          <div class="admin-stat-card">
+            <span class="admin-stat-lbl">📝 Notes & Revision</span>
+            <span class="admin-stat-val" id="adminStatNotesRev">0 / 0</span>
+            <span class="admin-stat-sub">Notes made / Revisions</span>
+          </div>
+          <div class="admin-stat-card">
+            <span class="admin-stat-lbl">🎯 Task Adherence</span>
+            <span class="admin-stat-val" id="adminStatTaskRate">0%</span>
+            <span class="admin-stat-sub" id="adminStatTaskDone">0 done / 0 assigned</span>
+          </div>
+          <div class="admin-stat-card">
+            <span class="admin-stat-lbl">📋 Mock Tests</span>
+            <span class="admin-stat-val" id="adminStatMocksAttempted">0</span>
+            <span class="admin-stat-sub" id="adminStatMocksAvg">Avg Score: --</span>
+          </div>
+          <div class="admin-stat-card">
+            <span class="admin-stat-lbl">🔥 Current Streak</span>
+            <span class="admin-stat-val" id="adminStatStreak">1 Day</span>
+            <span class="admin-stat-sub" id="adminStatScheduleHrs">0h study today</span>
+          </div>
+        </div>
+
+        <!-- Mentor Feedback & Directives Box -->
+        <div class="admin-feedback-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+            <strong style="color:#d8b4fe;font-size:0.85rem;">📝 Mentor Guidance & Performance Remark</strong>
+            <span style="font-size:0.7rem;color:var(--text-muted);">Displays on Student's Dashboard</span>
+          </div>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+            <input type="text" id="adminMentorFeedbackInput" class="form-input" placeholder="e.g. Excellent momentum on Vocabulary! Focus on Arithmetic Geometry & practice 1 CGL Tier-1 Mock this weekend." style="flex:1;min-width:260px;" />
+            <button id="adminSaveFeedbackBtn" class="btn btn-admin btn-sm">💾 Save & Send to Student</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subject Performance Breakdown Matrix -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📊 Subject-by-Subject Performance Analysis (18 Subjects)</h3>
+          <span style="font-size:0.75rem;color:var(--text-muted);">Real-time tracking of aspirant mastery</span>
+        </div>
+        <div class="admin-subjects-matrix" id="adminSubjectsMatrix">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Registered Students Directory & Live Performance Roster -->
+      <div class="card card-admin-highlight">
+        <div class="card-header">
+          <h3>👥 Registered Aspirants Directory & Live Performance</h3>
+          <span id="adminTotalStudentsBadge" class="admin-tag-pill" style="background:rgba(168,85,247,0.15);color:#c084fc;">0 Students</span>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:0.8rem;">
+          Real-time tracking of all students who logged in. Click <strong>Inspect</strong> to view their full performance, assign tasks, or schedule their daily routine.
+        </p>
+        <div style="overflow-x:auto;">
+          <table class="admin-roster-table">
+            <thead>
+              <tr>
+                <th>Aspirant Name</th>
+                <th>Overall Syllabus</th>
+                <th>Lectures Watched</th>
+                <th>Task Adherence</th>
+                <th>Streak</th>
+                <th>Last Active</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="adminStudentsRosterBody">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Admin Actions: 2 Columns (Assign Direct Lecture Task & Build Daily Routine) -->
+      <div class="admin-section-grid">
+
+        <!-- Column 1: Assign Task to Aspirant (Lecture or Optional Custom Task) -->
+        <div class="card">
+          <div class="card-header">
+            <h3>➕ Assign Task to Aspirant</h3>
+            <span class="admin-tag-pill" style="background:rgba(168,85,247,0.15);color:#c084fc;">Direct From Lectures or Custom</span>
+          </div>
+          <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:0.8rem;">
+            Assign syllabus lectures or optional custom tasks directly to the aspirant's daily target list.
+          </p>
+
+          <!-- Mode switcher: Direct Lecture vs Custom Task -->
+          <div class="mode-tabs" style="margin-bottom:0.75rem;">
+            <button type="button" id="btnAdminModeLecture" class="mode-btn active">📖 Direct Lecture (Syllabus)</button>
+            <button type="button" id="btnAdminModeCustom" class="mode-btn">⚡ Custom Task (Optional)</button>
+          </div>
+
+          <!-- Direct Lecture Form -->
+          <form id="adminLectureAssignForm" class="task-form admin-lecture-assign-box">
+            <!-- Target Date -->
+            <div class="form-row form-row-2">
+              <div>
+                <label class="form-label">Target Date</label>
+                <div style="display:flex;gap:0.3rem;">
+                  <input type="date" id="adminTaskDate" class="form-input date-input" required />
+                  <button type="button" id="adminTaskTodayBtn" class="btn btn-secondary btn-xs">Today</button>
+                </div>
+              </div>
+              <div>
+                <label class="form-label">Priority Level</label>
+                <select id="adminLecturePriority" class="form-select">
+                  <option value="urgent">🚨 Urgent (Must Finish)</option>
+                  <option value="high" selected>🔥 High Priority</option>
+                  <option value="normal">Normal</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Subject Selection -->
+            <div class="form-row form-row-2">
+              <div>
+                <label class="form-label">1. Select Subject (18 Subjects)</label>
+                <select id="adminLectureSubjectSelect" class="form-select" required>
+                  <!-- Populated by JS -->
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Filter Lecture by Keyword</label>
+                <input type="text" id="adminLectureSearchInput" class="form-input" placeholder="Search topic or lecture..." />
+              </div>
+            </div>
+
+            <!-- Individual Lecture Dropdown -->
+            <div class="form-row">
+              <label class="form-label">2. Select Individual Lecture</label>
+              <select id="adminLectureSelect" class="form-select" required>
+                <!-- Populated dynamically based on chosen subject -->
+              </select>
+            </div>
+
+            <!-- Mentor Directive / Note -->
+            <div class="form-row">
+              <label class="form-label">Mentor Instruction / Directive (optional)</label>
+              <input type="text" id="adminLectureNote" class="form-input" placeholder="e.g. Watch lecture, make concise notes, and solve 40 practice questions" />
+            </div>
+
+            <button type="submit" class="btn btn-admin" style="width:100%;margin-top:0.4rem;">
+              👑 Assign Lecture to Aspirant for Date
+            </button>
+          </form>
+
+          <!-- Custom Task Form (Optional Additional Tasks) -->
+          <form id="adminCustomAssignForm" class="task-form admin-lecture-assign-box" style="display:none;">
+            <!-- Target Date -->
+            <div class="form-row form-row-2">
+              <div>
+                <label class="form-label">Target Date</label>
+                <div style="display:flex;gap:0.3rem;">
+                  <input type="date" id="adminCustomTaskDate" class="form-input date-input" required />
+                  <button type="button" id="adminCustomTaskTodayBtn" class="btn btn-secondary btn-xs">Today</button>
+                </div>
+              </div>
+              <div>
+                <label class="form-label">Priority Level</label>
+                <select id="adminCustomTaskPriority" class="form-select">
+                  <option value="urgent">🚨 Urgent (Must Finish)</option>
+                  <option value="high" selected>🔥 High Priority</option>
+                  <option value="normal">Normal</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Custom Task Title -->
+            <div class="form-row">
+              <label class="form-label">Custom Task Title / Assignment</label>
+              <input type="text" id="adminCustomTaskTitle" class="form-input" placeholder="e.g. Full Length Mock #05 Comprehensive Analysis & Error Notebook" required />
+            </div>
+
+            <div class="form-row form-row-2">
+              <div>
+                <label class="form-label">Linked Subject (Optional)</label>
+                <select id="adminCustomTaskSubject" class="form-select">
+                  <option value="">None / General Task</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Estimated Hours / Duration</label>
+                <input type="text" id="adminCustomTaskHours" class="form-input" placeholder="e.g. 1.5 hrs" value="1.5 hrs" />
+              </div>
+            </div>
+
+            <!-- Mentor Directive / Note -->
+            <div class="form-row">
+              <label class="form-label">Mentor Directive / Instructions (Optional)</label>
+              <input type="text" id="adminCustomTaskNote" class="form-input" placeholder="e.g. Note down all incorrect and unattempted questions in error diary" />
+            </div>
+
+            <button type="submit" class="btn btn-admin" style="width:100%;margin-top:0.4rem;">
+              👑 Assign Custom Task to Aspirant for Date
+            </button>
+          </form>
+
+          <!-- Assigned Tasks Table -->
+          <div style="margin-top:1.25rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+              <h4 class="card-subheading" style="margin-bottom:0;border:none;">📋 Assigned Tasks</h4>
+              <span id="adminAssignedTasksCount" style="font-size:0.75rem;color:var(--text-muted);">0 assigned</span>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="admin-tasks-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Task & Subject</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="adminAssignedTasksList">
+                  <!-- Rendered by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 2: Build & Inject Daily Routine -->
+        <div class="card">
+          <div class="card-header">
+            <h3>⏰ Daily Routine & Timetable Manager</h3>
+            <span class="admin-tag-pill" style="background:rgba(16,185,129,0.15);color:var(--accent-emerald);">Schedule Planner</span>
+          </div>
+          <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:0.8rem;">
+            Set optimal daily routine templates or customize specific time blocks for the aspirant.
+          </p>
+
+          <div class="form-row" style="margin-bottom:0.75rem;">
+            <label class="form-label">Select Routine Date:</label>
+            <div style="display:flex;gap:0.4rem;">
+              <input type="date" id="adminRoutineDate" class="form-input date-input" style="flex:1;" />
+              <button id="adminRoutineTodayBtn" class="btn btn-secondary btn-sm">Today</button>
+            </div>
+          </div>
+
+          <!-- Quick Routine Presets -->
+          <div style="margin-bottom:1rem;">
+            <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:0.4rem;">⚡ ONE-CLICK ROUTINE PRESETS:</div>
+            <div class="preset-routine-btns">
+              <button class="btn-preset" data-preset="intensive">🔥 Intensive 12-Hr Routine</button>
+              <button class="btn-preset" data-preset="balanced">⚖️ Balanced 8-Hr Work+Study</button>
+              <button class="btn-preset" data-preset="weekend_mock">📝 Weekend Mock Marathon</button>
+              <button class="btn-preset" data-preset="clear" style="color:var(--accent-red);border-color:rgba(248,81,73,0.3);">🗑️ Clear Date</button>
+            </div>
+          </div>
+
+          <!-- Custom Slot Form -->
+          <form id="adminSlotForm" class="task-form" style="background:var(--bg-input);padding:0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border);">
+            <div style="font-size:0.78rem;font-weight:700;color:#c084fc;margin-bottom:0.4rem;">➕ Add Custom Routine Slot</div>
+            <div class="form-row form-row-2">
+              <div>
+                <label class="form-label">Start Time</label>
+                <input type="time" id="adminSlotStart" class="form-input" value="06:30" required />
+              </div>
+              <div>
+                <label class="form-label">End Time</label>
+                <input type="time" id="adminSlotEnd" class="form-input" value="08:30" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Activity Title</label>
+              <input type="text" id="adminSlotLabel" class="form-input" placeholder="e.g. GS Static GK & History Revision" required />
+            </div>
+            <div class="form-row form-row-3">
+              <div>
+                <label class="form-label">Category</label>
+                <select id="adminSlotCategory" class="form-select">
+                  <option value="study">📖 Study</option>
+                  <option value="work">💼 Work</option>
+                  <option value="coaching">🏫 Coaching</option>
+                  <option value="rest">😴 Rest</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Icon</label>
+                <input type="text" id="adminSlotIcon" class="form-input" value="📖" />
+              </div>
+              <div>
+                <label class="form-label">Linked Subject</label>
+                <select id="adminSlotSubject" class="form-select">
+                  <option value="">None / General</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Mentor Directive (optional)</label>
+              <input type="text" id="adminSlotDesc" class="form-input" placeholder="e.g. Focus on Medieval Indian History notes" />
+            </div>
+            <button type="submit" class="btn btn-admin btn-sm" style="width:100%;margin-top:0.4rem;">
+              👑 Schedule Routine Slot
+            </button>
+          </form>
+
+          <!-- Current Routine Preview -->
+          <div style="margin-top:1.25rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+              <h4 class="card-subheading" style="margin-bottom:0;border:none;">📅 Routine Preview (<span id="adminRoutineDateLabel">Today</span>)</h4>
+              <span id="adminRoutineSlotCount" style="font-size:0.75rem;color:var(--text-muted);">0 slots</span>
+            </div>
+            <div id="adminRoutineList" class="timeline-list">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- ===================== TIMETABLE SLOT MODAL ===================== -->
+<div id="slotEditorModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="slotModalTitle">Add Timetable Slot</h3>
+      <button id="closeSlotModalBtn" class="btn btn-icon">✕</button>
+    </div>
+    <form id="slotEditorForm">
+      <input type="hidden" id="editSlotId" />
+      <div class="form-row form-row-2">
+        <div>
+          <label class="form-label">Start Time</label>
+          <input type="time" id="slotStartTime" class="form-input" value="09:00" required />
+        </div>
+        <div>
+          <label class="form-label">End Time</label>
+          <input type="time" id="slotEndTime" class="form-input" value="11:00" required />
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Label</label>
+        <input type="text" id="slotLabel" class="form-input" placeholder="e.g. Math Study Session" required />
+      </div>
+      <div class="form-row form-row-2">
+        <div>
+          <label class="form-label">Category</label>
+          <select id="slotCategory" class="form-select">
+            <option value="study">📖 Study</option>
+            <option value="work">💼 Work</option>
+            <option value="coaching">🏫 Coaching</option>
+            <option value="rest">😴 Rest</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Icon</label>
+          <input type="text" id="slotIcon" class="form-input" value="📖" />
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Linked Subject (optional)</label>
+        <select id="slotAssignedSubject" class="form-select">
+          <option value="">None / General</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Notes / Description</label>
+        <textarea id="slotDesc" class="form-input" rows="2" placeholder="Optional notes..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="cancelSlotModalBtn" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Slot</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== CELEBRATION MODAL ===================== -->
+<div id="celebrationModal" class="modal-overlay">
+  <div class="modal-box celebration-box">
+    <div style="font-size:4rem;">🎉</div>
+    <h2 id="celebrationTitle">Milestone Achieved!</h2>
+    <p id="celebrationMsg">Keep going!</p>
+    <button id="closeCelebrationBtn" class="btn btn-primary">🚀 Continue</button>
+  </div>
+</div>
+
+<!-- ===================== RESET CONFIRM MODAL ===================== -->
+<div id="resetConfirmModal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>⚠️ Reset All Progress?</h3>
+    <p>This will permanently delete all your progress, tasks, and timetable data. This action cannot be undone.</p>
+    <div class="modal-footer">
+      <button id="cancelResetBtn" class="btn btn-secondary">Cancel</button>
+      <button id="confirmResetBtn" class="btn btn-danger">Yes, Reset Everything</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== TOAST ===================== -->
+<div id="toastNotification" class="toast" role="status" aria-live="polite" style="display:none;"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="backend.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
