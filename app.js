@@ -114,6 +114,58 @@
     } catch (e) {
       console.warn('Failed to save registered students:', e);
     }
+
+    // Admin changes must be written to the shared database, not only this browser.
+    if (window.MissionCloud && MissionCloud.isReady() && state.currentUser?.role === 'admin') {
+      Promise.allSettled(Object.values(studentsMap).map(student => MissionCloud.saveStudent(student)))
+        .then(results => {
+          const failed = results.filter(x => x.status === 'rejected');
+          if (failed.length) console.error('Some student records could not be synced:', failed.map(x => x.reason));
+        });
+    }
+  }
+
+  function profileToStudent(profile) {
+    const saved = profile?.state || {};
+    return {
+      ...saved,
+      id: profile.id,
+      username: profile.username || '',
+      name: profile.name || profile.username || 'Aspirant',
+      role: profile.role || 'student',
+      avatar: saved.avatar || '🎓',
+      batch: saved.batch || 'Mission 2026-2027 Master Batch • Target: SSC CGL / CHSL / RRB',
+      status: '🟢 Active Aspirant',
+      registeredAt: profile.created_at ? profile.created_at.slice(0, 10) : '',
+      lastActiveDate: saved.lastActiveDate || (profile.updated_at ? profile.updated_at.slice(0, 10) : ''),
+      lectures: saved.lectures || {},
+      mocks: saved.mocks || {},
+      dailyTargets: saved.dailyTargets || {},
+      dailyTimetables: saved.dailyTimetables || {},
+      streak: saved.streak || 1,
+      mentorFeedback: saved.mentorFeedback || '',
+      mentorNoticeDismissed: !!saved.mentorNoticeDismissed
+    };
+  }
+
+  async function refreshCloudStudents() {
+    if (!window.MissionCloud || !MissionCloud.isReady()) return;
+    const rows = await MissionCloud.listStudents();
+    const students = {};
+    rows.forEach(row => {
+      const student = profileToStudent(row);
+      students[student.id] = student;
+    });
+    saveRegisteredStudentsLocalOnly(students);
+    if (!state.activeStudentId || !students[state.activeStudentId]) {
+      state.activeStudentId = Object.keys(students)[0] || null;
+    }
+    renderAdminView();
+  }
+
+  function saveRegisteredStudentsLocalOnly(studentsMap) {
+    try { localStorage.setItem(STUDENTS_STORAGE_KEY, JSON.stringify(studentsMap)); }
+    catch (e) { console.warn('Failed to cache cloud student list:', e); }
   }
 
   function registerOrLoginStudent(name, password) {
@@ -460,36 +512,65 @@
      - Student: user-provided name & password by themselves
      - Live multi-student synchronization
   ============================================================ */
-  function initAuth() {
-    getRegisteredStudents();
+  async function initAuth() {
+    if (window.MissionCloud && MissionCloud.isReady()) {
+      try {
+        const session = await MissionCloud.getSession();
+        if (!session?.user) {
+          showAuthScreen();
+          return;
+        }
+        const profile = await MissionCloud.ensureMyProfile();
+        const isAdmin = session.user.app_metadata?.role === 'admin';
+        const user = {
+          id: session.user.id,
+          username: session.user.email,
+          role: isAdmin ? 'admin' : 'student',
+          name: profile?.name || session.user.user_metadata?.full_name || session.user.email,
+          avatar: isAdmin ? '👑' : '🎓'
+        };
+        state.currentUser = user;
+        if (isAdmin) {
+          await refreshCloudStudents();
+          MissionCloud.subscribeChanges(() => {
+            refreshCloudStudents().catch(err => console.error('Live student refresh failed:', err));
+          });
+        } else {
+          const student = profileToStudent({ ...profile, id: session.user.id, username: session.user.email, role: 'student' });
+          const students = getRegisteredStudents();
+          students[student.id] = student;
+          saveRegisteredStudentsLocalOnly(students);
+          loadStudentDataIntoState(student);
+        }
+        applyAuthenticatedUser(user);
+        return;
+      } catch (error) {
+        console.error('Cloud session initialization failed:', error);
+        showAuthScreen();
+        if (DOM.authError) {
+          DOM.authError.textContent = `Cloud connection error: ${error.message}. Check the Supabase URL, key, schema, and RLS policies.`;
+          DOM.authError.style.display = 'block';
+        }
+        return;
+      }
+    }
 
+    // Local-only fallback is retained only for an unconfigured development preview.
     try {
       const savedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (savedAuth) {
-        state.currentUser = JSON.parse(savedAuth);
-      }
-    } catch (e) {
-      console.warn('Auth load error:', e);
-    }
+      if (savedAuth) state.currentUser = JSON.parse(savedAuth);
+    } catch (e) { console.warn('Auth load error:', e); }
 
     if (state.currentUser) {
       if (state.currentUser.role === 'student') {
         const students = getRegisteredStudents();
-        const s = students[state.currentUser.id] || Object.values(students).find(x => x.name.toLowerCase() === (state.currentUser.name || '').toLowerCase());
-        if (s) {
-          loadStudentDataIntoState(s);
+        const student = students[state.currentUser.id];
+        if (student) {
+          loadStudentDataIntoState(student);
           applyAuthenticatedUser(state.currentUser);
-        } else {
-          // Student was from previous session or not in registry; prompt login
-          logout();
-          return;
-        }
-      } else {
-        applyAuthenticatedUser(state.currentUser);
-      }
-    } else {
-      showAuthScreen();
-    }
+        } else { logout(); return; }
+      } else applyAuthenticatedUser(state.currentUser);
+    } else showAuthScreen();
   }
 
   function showAuthScreen() {
@@ -559,24 +640,65 @@
     refreshAll();
   }
 
-  function handleStudentLogin(name, password) {
-    const res = registerOrLoginStudent(name, password);
-    if (!res.success) {
-      if (DOM.authError) {
-        DOM.authError.textContent = res.message;
-        DOM.authError.style.display = 'block';
-      }
+  async function handleStudentLogin(email, password) {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = password || '';
+    if (!cleanEmail || !cleanPassword) {
+      if (DOM.authError) { DOM.authError.textContent = 'Enter your email address and password.'; DOM.authError.style.display = 'block'; }
       return false;
     }
 
+    if (window.MissionCloud && MissionCloud.isReady()) {
+      try {
+        let result;
+        try {
+          result = await MissionCloud.signIn(cleanEmail, cleanPassword);
+        } catch (signInError) {
+          if (!/invalid login credentials|user not found/i.test(signInError.message || '')) throw signInError;
+          const signup = await MissionCloud.signUp(cleanEmail, cleanPassword, cleanEmail.split('@')[0]);
+          if (signup.user && Array.isArray(signup.user.identities) && signup.user.identities.length === 0) {
+            throw new Error('This email is already registered. Please sign in with the correct password.');
+          }
+          if (!signup.session) {
+            throw new Error('Account created. Verify your email, then return and sign in.');
+          }
+          result = await MissionCloud.signIn(cleanEmail, cleanPassword);
+        }
+        if (!result.user.app_metadata?.role || result.user.app_metadata.role !== 'admin') {
+          const profile = await MissionCloud.ensureMyProfile(cleanEmail.split('@')[0]);
+          const student = profileToStudent({ ...profile, id: result.user.id, username: result.user.email, role: 'student' });
+          const students = getRegisteredStudents();
+          students[student.id] = student;
+          saveRegisteredStudentsLocalOnly(students);
+          loadStudentDataIntoState(student);
+          const user = { id: result.user.id, username: result.user.email, role: 'student', name: student.name, avatar: '🎓' };
+          state.currentUser = user;
+          applyAuthenticatedUser(user);
+          await MissionCloud.saveMyProfile({
+            lectures: state.lectures, mocks: state.mocks, dailyTargets: state.dailyTargets,
+            dailyTimetables: state.dailyTimetables, streak: state.streak,
+            lastActiveDate: todayStr(), mentorFeedback: state.mentorFeedback,
+            mentorNoticeDismissed: state.mentorNoticeDismissed
+          });
+          showToast(`Welcome, ${student.name}! Your progress is synced online.`);
+          return true;
+        }
+        await MissionCloud.signOut();
+        throw new Error('This email belongs to an administrator. Please use the Admin Login tab.');
+      } catch (error) {
+        console.error('Student authentication failed:', error);
+        if (DOM.authError) { DOM.authError.textContent = error.message || 'Unable to sign in. Check your email and password.'; DOM.authError.style.display = 'block'; }
+        return false;
+      }
+    }
+
+    const res = registerOrLoginStudent(cleanEmail, cleanPassword);
+    if (!res.success) {
+      if (DOM.authError) { DOM.authError.textContent = res.message; DOM.authError.style.display = 'block'; }
+      return false;
+    }
     const st = res.student;
-    const user = {
-      id: st.id,
-      username: st.username || st.id,
-      role: 'student',
-      name: st.name,
-      avatar: st.avatar || '🎓'
-    };
+    const user = { id: st.id, username: st.username || st.id, role: 'student', name: st.name, avatar: st.avatar || '🎓' };
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
     loadStudentDataIntoState(st);
     applyAuthenticatedUser(user);
@@ -584,26 +706,43 @@
     return true;
   }
 
-  function handleAdminLogin(username, password) {
-    const u = (username || '').trim().toLowerCase();
-    const p = (password || '').trim();
+  async function handleAdminLogin(username, password) {
+    const email = (username || '').trim().toLowerCase();
+    if (window.MissionCloud && MissionCloud.isReady()) {
+      try {
+        const result = await MissionCloud.signIn(email, password || '');
+        if (result.user.app_metadata?.role !== 'admin') {
+          await MissionCloud.signOut();
+          throw new Error('This account is not an administrator. Promote it in Supabase Auth app_metadata and sign in again.');
+        }
+        const user = { id: result.user.id, username: result.user.email, role: 'admin', name: result.profile?.name || 'Admin Command', avatar: '👑' };
+        state.currentUser = user;
+        await refreshCloudStudents();
+        MissionCloud.subscribeChanges(() => refreshCloudStudents().catch(err => console.error('Live student refresh failed:', err)));
+        applyAuthenticatedUser(user);
+        showToast('Welcome, Administrator. Student records loaded from Supabase.');
+        return true;
+      } catch (error) {
+        console.error('Admin authentication failed:', error);
+        if (DOM.authError) { DOM.authError.textContent = error.message || 'Invalid administrator email or password.'; DOM.authError.style.display = 'block'; }
+        return false;
+      }
+    }
 
-    if (u === 'admin' && p === 'arav') {
+    if (email === 'admin' && (password || '').trim() === 'arav') {
       const user = { id: 'admin', username: 'admin', role: 'admin', name: 'Admin Command', avatar: '👑' };
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
       applyAuthenticatedUser(user);
       showToast('Welcome, Administrator! 👑');
       return true;
-    } else {
-      if (DOM.authError) {
-        DOM.authError.textContent = 'Invalid Admin credentials. (Use admin / arav)';
-        DOM.authError.style.display = 'block';
-      }
-      return false;
     }
+    if (DOM.authError) { DOM.authError.textContent = 'Configure Supabase to use administrator authentication.'; DOM.authError.style.display = 'block'; }
+    return false;
   }
 
-  function logout() {
+  async function logout() {
+    try { if (window.MissionCloud && MissionCloud.isReady()) await MissionCloud.signOut(); }
+    catch (error) { console.warn('Cloud sign-out failed:', error); }
     localStorage.removeItem(AUTH_STORAGE_KEY);
     state.currentUser = null;
     state.userRole = 'student';
@@ -644,6 +783,15 @@
           saveRegisteredStudents(students);
         }
       }
+
+      if (window.MissionCloud && MissionCloud.isReady() && state.currentUser?.role === 'student') {
+        MissionCloud.saveMyProfile({
+          lectures: state.lectures, mocks: state.mocks, dailyTargets: state.dailyTargets,
+          dailyTimetables: state.dailyTimetables, streak: state.streak,
+          lastActiveDate: todayStr(), mentorFeedback: state.mentorFeedback,
+          mentorNoticeDismissed: state.mentorNoticeDismissed
+        }).catch(error => console.error('Cloud performance save failed:', error));
+      }
     } catch(e) { console.warn('Save error:', e); }
   }
 
@@ -676,14 +824,11 @@
      THEME
   ============================================================ */
   function applyTheme(name) {
-    state.theme = name;
-    if (name === 'light') {
-      document.body.classList.replace('theme-dark', 'theme-light');
-      if (DOM.themeIcon) DOM.themeIcon.textContent = '🌙';
-    } else {
-      document.body.classList.replace('theme-light', 'theme-dark');
-      if (DOM.themeIcon) DOM.themeIcon.textContent = '☀️';
-    }
+    // Mission uses a consistent dark interface on every device.
+    state.theme = 'dark';
+    document.body.classList.remove('theme-light');
+    document.body.classList.add('theme-dark');
+    if (DOM.themeIcon) DOM.themeIcon.textContent = '🌙';
     saveState();
   }
 
@@ -2237,7 +2382,7 @@
     if (DOM.logoutBtn) DOM.logoutBtn.addEventListener('click', logout);
 
     // Theme
-    if (DOM.themeToggleBtn) DOM.themeToggleBtn.addEventListener('click', () => applyTheme(state.theme==='dark'?'light':'dark'));
+    if (DOM.themeToggleBtn) DOM.themeToggleBtn.addEventListener('click', () => applyTheme('dark'));
 
     // Role switcher
     if (DOM.roleStudentBtn) DOM.roleStudentBtn.addEventListener('click', () => setRole('student'));
@@ -2272,9 +2417,15 @@
         showToast(`Viewing profile: ${s ? s.name : state.activeStudentId} 🎓`);
       });
     }
-    if (DOM.adminRefreshBtn) DOM.adminRefreshBtn.addEventListener('click', () => {
-      renderAdminView();
-      showToast('Admin data refreshed');
+    if (DOM.adminRefreshBtn) DOM.adminRefreshBtn.addEventListener('click', async () => {
+      try {
+        if (window.MissionCloud && MissionCloud.isReady()) await refreshCloudStudents();
+        else renderAdminView();
+        showToast('Admin data refreshed from the database');
+      } catch (error) {
+        console.error('Admin refresh failed:', error);
+        showToast(`Could not refresh: ${error.message}`);
+      }
     });
 
     // Save mentor feedback
@@ -2551,7 +2702,7 @@
     setInterval(updateCountdown, 60000);
     startClock();
     setupEvents();
-    initAuth();
+    initAuth().catch(error => { console.error('Initialization failed:', error); showAuthScreen(); });
   }
 
   init();

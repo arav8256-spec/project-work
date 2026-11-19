@@ -48,7 +48,8 @@
     // Existing cloud student rows are updated by their UUID; admin RLS policy authorizes this.
     const { error } = await client.from('user_profiles').update({
       name:student.name, username:student.username || null,
-      state:{ lectures:student.lectures || {}, mocks:student.mocks || {}, dailyTargets:student.dailyTargets || {}, dailyTimetables:student.dailyTimetables || {}, streak:student.streak || 1, lastActiveDate:student.lastActiveDate || '', mentorFeedback:student.mentorFeedback || '', mentorNoticeDismissed:!!student.mentorNoticeDismissed }
+      state:{ lectures:student.lectures || {}, mocks:student.mocks || {}, dailyTargets:student.dailyTargets || {}, dailyTimetables:student.dailyTimetables || {}, streak:student.streak || 1, lastActiveDate:student.lastActiveDate || '', mentorFeedback:student.mentorFeedback || '', mentorNoticeDismissed:!!student.mentorNoticeDismissed },
+      updated_at:new Date().toISOString()
     }).eq('id', student.id);
     if (error) throw error;
   }

@@ -7,7 +7,7 @@ A responsive study tracker with student accounts, individual performance records
 1. Create a Supabase project at https://supabase.com.
 2. Open **SQL Editor** and run the complete `supabase-schema.sql` script.
 3. Open **Project Settings → API** and copy the Project URL and `anon` / publishable key.
-4. Paste those two public values into `supabase-config.js`:
+4. Paste those two public values into `supabase-config.js`. The Project URL must look like `https://YOUR_PROJECT_ID.supabase.co` (do not paste a Supabase dashboard or SQL Editor URL):
 
    ```js
    window.MISSION_SUPABASE_CONFIG = {
@@ -46,8 +46,9 @@ A responsive study tracker with student accounts, individual performance records
 
 - A first-time student can register from the Student Access form. Existing students log in with the same email/password.
 - Each account has its own cloud profile and stores lecture progress, mock-test scores, daily tasks, timetable, streak, and mentor feedback.
-- New student profiles are created by a database trigger and appear in the admin roster.
-- The admin selects a student in the admin portal, reviews their performance, and assigns tasks or timetable slots. Those changes are saved to that student's cloud profile.
+- New student profiles are created by a database trigger and appear in the admin roster. The app loads the roster from `public.user_profiles`, not from browser-only local storage.
+- Student lecture progress, notes, revision, questions, mock scores, daily tasks, timetable, streak, and mentor feedback are saved to that student's cloud profile after each app save.
+- The admin selects a student in the admin portal, reviews the full performance calculation, and assigns tasks or timetable slots. Admin changes are written back to the selected student's cloud profile.
 - Active student pages receive admin task/timetable changes through Supabase Realtime. If a student is offline, the latest assignments load at their next login.
 - Row Level Security prevents students from reading other students' profiles or promoting themselves to admin. Only the admin role stored in Supabase Auth app metadata can manage all student profiles.
 
@@ -55,6 +56,11 @@ A responsive study tracker with student accounts, individual performance records
 
 Run a local static server (for example, VS Code Live Server) from this folder. Configure Supabase first; the shared account features do not work until the project URL and anon key are set.
 
-## Important
+## Important troubleshooting
+
+- If the admin roster is empty, confirm that the signed-in admin has `app_metadata.role = admin` in Supabase Auth and that the matching `user_profiles.role` is `admin`. Sign out and sign back in after changing app metadata.
+- If the browser reports a cloud connection error, verify that `supabase-config.js` contains the project API URL (`https://PROJECT_REF.supabase.co`) and the project's anon/publishable key.
+- Run the complete `supabase-schema.sql` in the Supabase SQL Editor. The `user_profiles` table, account-creation trigger, and RLS policies are required.
+- Accounts and progress previously stored only in an individual browser's local storage are not automatically uploaded to Supabase. Those users must create/sign in to cloud accounts before their records can be shared across devices.
 
 This app is a client-side study tracker backed by Supabase. It does not contain a private service key or a Vercel server-side API. Do not remove the RLS policies from `supabase-schema.sql`. Back up your Supabase database periodically.

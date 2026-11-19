@@ -1528,3 +1528,250 @@ input, select, textarea { max-width: 100%; min-width: 0; }
     margin-left: auto;
   }
 }
+
+
+
+/* ============================================================
+   MOBILE FIT + DARK-ONLY OVERRIDES
+   ============================================================ */
+
+/* Keep the interface dark even if an older saved preference says light. */
+:root, .theme-light, .theme-dark {
+  color-scheme: dark;
+  --bg-base: #080d16;
+  --bg-card: #101827;
+  --bg-card-hover: #172338;
+  --bg-input: #0c1422;
+  --bg-modal: #101827;
+  --border: #263449;
+  --border-subtle: #1c293b;
+  --text-primary: #e7edf7;
+  --text-secondary: #a8b5c8;
+  --text-muted: #7f8da3;
+  --shadow: 0 8px 28px rgba(0,0,0,.38);
+  --shadow-sm: 0 3px 12px rgba(0,0,0,.25);
+}
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  background-color: var(--bg-base) !important;
+  color: var(--text-primary);
+}
+body, .theme-light, .theme-dark,
+.theme-light .app-header, .theme-light .hero-section,
+.theme-light .main-nav, .theme-light .card {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+.theme-light .app-header { background: rgba(8,13,22,.97); }
+.theme-light .auth-screen-overlay {
+  background: radial-gradient(circle at 50% 30%, #172338 0%, #080d16 80%);
+}
+.theme-light .hero-section {
+  background: linear-gradient(135deg, #101827, #0b1320 60%, #15152b);
+}
+.theme-toggle-btn { display: none !important; }
+#themeToggleBtn { display: none !important; }
+
+*, *::before, *::after { min-width: 0; }
+img, svg, video, canvas { max-width: 100%; }
+.card, .subject-card, .stat-box, .modal-box, .auth-card,
+.admin-section, .daily-task-card, .timeline-item {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+button, .btn { max-width: 100%; }
+input, select, textarea { width: auto; max-width: 100%; }
+
+/* No horizontal scrolling strips: controls wrap onto additional lines. */
+.nav-scroll, .filter-chips, .bulk-actions, .preset-routine-btns {
+  display: flex;
+  flex-wrap: wrap !important;
+  overflow: visible !important;
+  max-width: 100%;
+  white-space: normal;
+}
+.nav-scroll { padding-inline: .5rem; }
+.nav-tab {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: center;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.filter-chips > *, .bulk-actions > *, .preset-routine-btns > * {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: normal;
+}
+.table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow: visible !important;
+}
+.syllabus-table, .admin-roster-table, .admin-tasks-table {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0 !important;
+  table-layout: fixed;
+}
+.syllabus-table td, .admin-roster-table td, .admin-tasks-table td,
+.syllabus-table th, .admin-roster-table th, .admin-tasks-table th {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* Mobile lecture rows become full-width stacked cards, never a wide table. */
+@media (max-width: 768px) {
+  .syllabus-table { display: block; }
+  .syllabus-table thead { display: none !important; }
+  .syllabus-table tbody { display: grid; grid-template-columns: minmax(0,1fr); gap: .65rem; }
+  .syllabus-table tbody tr {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+    gap: .2rem .75rem;
+    width: 100%;
+    min-width: 0 !important;
+    margin: 0;
+    padding: .8rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-card);
+  }
+  .syllabus-table tbody tr td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    width: auto !important;
+    min-width: 0;
+    padding: .35rem .1rem;
+    border: 0;
+    font-size: .78rem;
+  }
+  .syllabus-table tbody tr td::before {
+    content: attr(data-label);
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: .62rem;
+    color: var(--text-muted);
+    font-weight: 800;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+  .syllabus-table tbody tr .lecture-title-cell {
+    grid-column: 1 / -1;
+    display: block;
+    max-width: none;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: .55rem;
+    margin-bottom: .2rem;
+  }
+  .syllabus-table tbody tr .lecture-title-cell::before {
+    display: block;
+    margin-bottom: .25rem;
+  }
+  .syllabus-table tbody tr .stage-check-cell {
+    justify-content: space-between;
+    width: auto !important;
+    text-align: left;
+  }
+  .syllabus-table tbody tr td:last-child {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: .55rem;
+  }
+  .row-progress-wrap { width: min(100%, 100px); }
+  .row-progress-bg { width: 100%; }
+
+  .subjects-grid, .mock-papers-grid, .admin-section-grid,
+  .admin-subjects-matrix, .daily-layout, .timetable-layout {
+    grid-template-columns: minmax(0,1fr) !important;
+  }
+  .hero-stats-grid, .admin-perf-cards, .trophies-grid {
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+  }
+  .card, .subject-card, .stat-box { min-width: 0; }
+  .card-header, .tab-header, .subject-card-header,
+  .subject-card-footer, .admin-student-bar, .admin-student-info {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .card-header > *, .tab-header > *, .subject-card-footer > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+  .pagination-info, .syllabus-summary { margin-left: 0; padding-left: 0; flex-wrap: wrap; }
+  .form-row, .form-row-2, .form-row-3 {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) !important;
+  }
+  .admin-mode-left, .admin-mode-right, .student-select-wrap {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .admin-mode-right > *, .admin-mode-left > * { max-width: 100%; }
+}
+
+/* Smaller phones: use a single-column rhythm and prevent cramped controls. */
+@media (max-width: 480px) {
+  .tab-content { padding: .5rem; }
+  .card, .subject-card { padding: .7rem; }
+  .hero-section { margin-inline: 0; }
+  .hero-stats-grid, .admin-perf-cards, .trophies-grid {
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+  }
+  .filter-chips { gap: .4rem; }
+  .filter-chips .chip { flex: 0 1 auto; }
+  .nav-scroll { gap: .25rem; padding: .25rem; }
+  .nav-tab { flex: 1 1 calc(50% - .25rem); padding: .6rem .35rem; font-size: .7rem; }
+  .syllabus-table tbody tr { padding: .65rem; }
+  .syllabus-table tbody tr td { font-size: .73rem; }
+  .btn, button { white-space: normal; overflow-wrap: anywhere; }
+  .date-nav, .bulk-actions, .preset-routine-btns { width: 100%; }
+  .date-nav { flex-wrap: wrap; }
+  .date-nav > * { flex: 1 1 40%; }
+  .date-nav .date-input { flex: 1 1 100%; }
+  .modal-box { width: 100%; }
+}
+@media (max-width: 360px) {
+  .hero-stats-grid, .admin-perf-cards, .trophies-grid {
+    grid-template-columns: minmax(0,1fr) !important;
+  }
+  .syllabus-table tbody tr { grid-template-columns: minmax(0,1fr); }
+  .syllabus-table tbody tr .lecture-title-cell,
+  .syllabus-table tbody tr td:last-child { grid-column: 1; }
+  .nav-tab { flex-basis: 100%; }
+}
+
+/* Admin data tables also wrap within the viewport on phones. */
+@media (max-width: 768px) {
+  .admin-roster-table, .admin-tasks-table { display: block; }
+  .admin-roster-table thead, .admin-tasks-table thead { display: none; }
+  .admin-roster-table tbody, .admin-tasks-table tbody {
+    display: grid;
+    grid-template-columns: minmax(0,1fr);
+    gap: .6rem;
+  }
+  .admin-roster-table tr, .admin-tasks-table tr {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+    gap: .3rem .6rem;
+    padding: .7rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    white-space: normal;
+  }
+  .admin-roster-table td, .admin-tasks-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: .4rem;
+    padding: .3rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
